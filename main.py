@@ -45,10 +45,11 @@ def main():
     GPIO_PIN = 21  # BCM
     DUTATION = 30  # s
     TEMP_LIMIT = 40  # ℃
+    DISK = '/dev/sdb'
     cli = 'python3 ' + path.split(path.realpath(__file__))[0] + '/control.py ' + str(GPIO_PIN) + ' ' + str(DUTATION)
     # print(cli)
     while True:
-        cur_temp = get_disk_temp('/dev/sdb')
+        cur_temp = get_disk_temp(DISK)
         print(cur_temp)
         if cur_temp >= TEMP_LIMIT:
             sleep(DUTATION)
