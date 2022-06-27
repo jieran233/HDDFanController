@@ -1,6 +1,6 @@
 from os import path
 from subprocess import PIPE, Popen
-from time import sleep
+import time
 
 
 def execute_command_line(cli):
@@ -36,26 +36,50 @@ def get_disk_temp(disk):
             continue
     # print(disk_info)
     if (len(info) != 1):
-        disk_temp = int(disk_info[9])
-        return disk_temp
+        try:
+            disk_temp = int(disk_info[9])
+        except Exception as e:
+            print('E: {}'.format(e.args))
+            return -1
     else:
-        return ""
+        return -1
+    return disk_temp
 
-def main():
+def get_cpu_temp():
+    tmp = open('/sys/class/thermal/thermal_zone0/temp')
+    cpu = tmp.read()
+    tmp.close()
+    cpu_temp= int(float(cpu) / 1000)
+    #print(cpu_temp)
+    return cpu_temp
+
+def main(also_by_CPU_temp_control=False):
     GPIO_PIN = 21  # BCM
-    DUTATION = 30  # s
-    TEMP_LIMIT = 40  # ℃
+    DUTATION = 60  # s
+    DISK_TEMP_LIMIT = 40  # ℃
+    CPU_TEMP_LIMIT = 60  # ℃
     DISK = '/dev/sdb'
     cli = 'python3 ' + path.split(path.realpath(__file__))[0] + '/control.py ' + str(GPIO_PIN) + ' ' + str(DUTATION)
     # print(cli)
     while True:
-        cur_temp = get_disk_temp(DISK)
-        print(cur_temp)
-        if cur_temp >= TEMP_LIMIT:
-            sleep(DUTATION)
+        cur_disk_temp = get_disk_temp(DISK)
+        cur_cpu_temp = get_cpu_temp()
+        overrun = {'disk': cur_disk_temp >= DISK_TEMP_LIMIT, 'cpu': cur_cpu_temp >= CPU_TEMP_LIMIT}
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        texts = ['[{}] '.format(now), 'Out of limit: Disk={}({}℃)'.format(overrun['disk'], cur_disk_temp), ', CPU={}({}℃)'.format(overrun['cpu'], cur_cpu_temp)]
+        
+        if also_by_CPU_temp_control:
+            print(texts[0] + texts[1] + texts[2])
+            conditions = overrun['disk'] or overrun['cpu']
+        else:
+            print(texts[0] + texts[1])
+            conditions = overrun['disk']
+        
+        if (conditions):
+            time.sleep(DUTATION)
             continue
         execute_command_line(cli)
 
 
 if __name__ == '__main__':
-    main()
+    main(True)
