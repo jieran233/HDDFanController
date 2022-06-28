@@ -62,7 +62,9 @@ def get_disk_IO_util(device):
     return r[0]
 
 def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_disk_temp_if_not_in_use=False):
-    # 风扇亦受CPU温度控制, 在晚上什么都不做, 如果硬盘没有使用不要检测其温度
+    # also_by_cpu_temp_control          风扇亦受CPU温度控制
+    # do_nothing_at_night               在晚上什么都不做
+    # not_check_disk_temp_if_not_in_use 如果硬盘没有使用不要检测其温度  (检测温度会阻止硬盘休眠，这样做能使硬盘能够正常休眠)
 
     GPIO_PIN = 26  # BCM
     DUTATION = 60  # s
@@ -137,4 +139,4 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
 
 
 if __name__ == '__main__':
-    main(True, False, False)
+    main(True, True, True)
