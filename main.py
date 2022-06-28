@@ -65,6 +65,7 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
     # also_by_cpu_temp_control          风扇亦受CPU温度控制
     # do_nothing_at_night               在晚上什么都不做
     # not_check_disk_temp_if_not_in_use 如果硬盘没有使用不要检测其温度  (检测温度会阻止硬盘休眠，这样做能使硬盘能够正常休眠)
+    print('also_by_cpu_temp_control={}, do_nothing_at_night={}, not_check_disk_temp_if_not_in_use={}'.format(str(also_by_cpu_temp_control), str(do_nothing_at_night), str(not_check_disk_temp_if_not_in_use)))
 
     GPIO_PIN = 26  # BCM
     DUTATION = 60  # s
