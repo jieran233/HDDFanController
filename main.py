@@ -74,7 +74,7 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
     DISK = '/dev/sda'
     DISK_IO_UTIL_THRESHOLD_VALUE = 0.0  # 若磁盘IO Util高于此值即判定硬盘为使用中状态
     NORMALLY_OPEN_OR_CLOSED = True  # True=继电器常开, False=继电器常闭
-    RETURN_TEMP_WHEN_DISK_NOT_IN_USE = 255  # 若 not_check_disk_temp_if_not_in_use=True 且硬盘未使用中，则将这个值作为硬盘的温度供程序处理，建议根据需求设定为一个极低的值(如-1)或极高的值(如255)
+    RETURN_TEMP_WHEN_DISK_NOT_IN_USE = -1  # 若 not_check_disk_temp_if_not_in_use=True 且硬盘未使用中，则将这个值作为硬盘的温度供程序处理，建议根据需求设定为一个极低的值(如-1)或极高的值(如255)
     
     disk_ = DISK.split('/')[2]  # for get_disk_IO_util(device)
     cli = 'python3 ' + path.split(path.realpath(__file__))[0] + '/control.py ' + str(GPIO_PIN) + ' ' + str(DUTATION)
