@@ -15,8 +15,8 @@ def execute_command_line(cli):
 
             # print(proc.communicate()) # 标准输出的字符串+标准错误的字符串
             outinfo, errinfo = proc.communicate()
-            outinfo = outinfo.decode('gbk')
-            errinfo = errinfo.decode('gbk')
+            outinfo = outinfo.decode('utf-8')
+            errinfo = errinfo.decode('utf-8')
             infos = {'outinfo': outinfo, 'errinfo': errinfo}
             # print(outinfo.decode('gbk'))  # 外部程序(windows系统)决定编码格式
             # print(errinfo.decode('gbk'))
@@ -26,7 +26,6 @@ def execute_command_line(cli):
             return
 
 def get_disk_temp(disk):
-    # disk_ = '/dev/sdb'
     disk_info = []
     info = execute_command_line('sudo smartctl -A ' + disk + ' | grep 194')['outinfo'].split(' ')  # C2(194) 温度 Temperature
     for i in info:
@@ -53,33 +52,90 @@ def get_cpu_temp():
     #print(cpu_temp)
     return cpu_temp
 
-def main(also_by_CPU_temp_control=False):
-    GPIO_PIN = 21  # BCM
+def get_disk_IO_util(device):
+    # sudo apt-get install sysstat
+    o = execute_command_line("sar -d 1 1 | grep '" + device + "'")['outinfo'].split(' ')
+    while '' in o:
+        o.remove('')
+    # print(o)
+    r = o[9].split('\n')
+    return r[0]
+
+def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_disk_temp_if_not_in_use=False):
+    # 风扇亦受CPU温度控制, 在晚上什么都不做, 如果硬盘没有使用不要检测其温度
+
+    GPIO_PIN = 26  # BCM
     DUTATION = 60  # s
     DISK_TEMP_LIMIT = 40  # ℃
     CPU_TEMP_LIMIT = 60  # ℃
-    DISK = '/dev/sdb'
+    NIGHT_HOURS = [0,1,2,3,4,5,6]  # 0-24 hour
+    DISK = '/dev/sda'
+    DISK_IO_UTIL_THRESHOLD_VALUE = 0.0  # 若磁盘IO Util高于此值即判定硬盘为使用中状态
+    NORMALLY_OPEN_OR_CLOSED = True  # True=继电器常开, False=继电器常闭
+    
+    disk_ = DISK.split('/')[2]  # for get_disk_IO_util(device)
     cli = 'python3 ' + path.split(path.realpath(__file__))[0] + '/control.py ' + str(GPIO_PIN) + ' ' + str(DUTATION)
     # print(cli)
     while True:
-        cur_disk_temp = get_disk_temp(DISK)
+        now_ = time.localtime()
+        now = time.strftime("%Y-%m-%d %H:%M:%S", now_)
+        hour_now = time.strftime("%H", now_)
+        continue_ = False
+
+        for i in range(0,len(NIGHT_HOURS)):
+            if (str(NIGHT_HOURS[i]) == str(hour_now)):
+                continue_ = True
+        if continue_ and do_nothing_at_night:
+            print("At night({} o'clock), do nothing.".format(str(hour_now)))
+            time.sleep(DUTATION)
+            continue
+        
+        disk_IO_util_now = get_disk_IO_util(disk_)
+        not_ = ''
+        nocheckdt = False
+        if (not(float(disk_IO_util_now) > float(DISK_IO_UTIL_THRESHOLD_VALUE))):
+            not_ = 'not '
+            strs = ["[{}] Disk is {}in use ({})".format(now, not_, disk_IO_util_now), ', disk temperature will not be checked (return -1)']
+            if not_check_disk_temp_if_not_in_use:
+                nocheckdt = True
+                print(strs[0] + strs[1])
+            else:
+                print(strs[0])
+        else:
+            strs = ["[{}] Disk is {}in use ({})".format(now, not_, disk_IO_util_now), ', disk temperature will not be checked (return -1)']
+            print(strs[0])
+        
+        if nocheckdt:
+            cur_disk_temp = -1
+        else:
+            cur_disk_temp = get_disk_temp(DISK)
         cur_cpu_temp = get_cpu_temp()
         overrun = {'disk': cur_disk_temp >= DISK_TEMP_LIMIT, 'cpu': cur_cpu_temp >= CPU_TEMP_LIMIT}
-        now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        
         texts = ['[{}] '.format(now), 'Out of limit: Disk={}({}℃)'.format(overrun['disk'], cur_disk_temp), ', CPU={}({}℃)'.format(overrun['cpu'], cur_cpu_temp)]
         
-        if also_by_CPU_temp_control:
+        if also_by_cpu_temp_control:
             print(texts[0] + texts[1] + texts[2])
             conditions = overrun['disk'] or overrun['cpu']
         else:
             print(texts[0] + texts[1])
             conditions = overrun['disk']
         
-        if (conditions):
+        if NORMALLY_OPEN_OR_CLOSED:
+            # 常开继电器
+            if conditions:
+                execute_command_line(cli)
+                continue
             time.sleep(DUTATION)
-            continue
-        execute_command_line(cli)
+        else:
+            # 常闭继电器
+            if conditions:
+                time.sleep(DUTATION)
+                continue
+            execute_command_line(cli)
+
+        print('\n')
 
 
 if __name__ == '__main__':
-    main(True)
+    main(True, True, True)
