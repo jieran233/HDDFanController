@@ -134,8 +134,6 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
                 continue
             execute_command_line(cli)
 
-        print('\n')
-
 
 if __name__ == '__main__':
-    main(True, True, True)
+    main(True, False, True)
