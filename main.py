@@ -1,6 +1,7 @@
 from os import path
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen  # execute_command_line()
 import time
+from threading import Thread  # 多线程
 
 
 def execute_command_line(cli):
@@ -61,6 +62,23 @@ def get_disk_IO_util(device):
     r = o[9].split('\n')
     return r[0]
 
+class getIOs_Thread:
+    def method(self, second, disk_):
+        DUTATION = int(second)
+        disk_ = str(disk_)
+        global IOs
+        IOs = []
+        for i in range(0, DUTATION):
+            IOs.append(float(get_disk_IO_util(disk_)))
+        IOs.sort()
+        
+
+    def newThread(self, arg1, arg2):
+        Thread(target=self.method, args=(arg1, arg2)).start()
+
+    def get_return(self):
+        return(IOs)
+
 def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_disk_temp_if_not_in_use=False):
     # also_by_cpu_temp_control          风扇亦受CPU温度控制
     # do_nothing_at_night               在晚上什么都不做
@@ -68,7 +86,7 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
     print('also_by_cpu_temp_control={}, do_nothing_at_night={}, not_check_disk_temp_if_not_in_use={}'.format(str(also_by_cpu_temp_control), str(do_nothing_at_night), str(not_check_disk_temp_if_not_in_use)))
 
     GPIO_PIN = 26  # BCM
-    DUTATION = 60  # s
+    DUTATION = 30  # s
     DISK_TEMP_LIMIT = 40  # ℃
     CPU_TEMP_LIMIT = 60  # ℃
     NIGHT_HOURS = [0,1,2,3,4,5,6]  # 0-24 hour
@@ -78,7 +96,10 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
     RETURN_TEMP_WHEN_DISK_NOT_IN_USE = -1  # 若 not_check_disk_temp_if_not_in_use=True 且硬盘未使用中，则将这个值作为硬盘的温度供程序处理，建议根据需求设定为一个极低的值(如-1)或极高的值(如255)
     
     disk_ = DISK.split('/')[2]  # for get_disk_IO_util(device)
-    cli = 'python3 ' + path.split(path.realpath(__file__))[0] + '/control.py ' + str(GPIO_PIN) + ' ' + str(DUTATION)
+    cli = 'python3 ' + path.split(path.realpath(__file__))[0] + '/control.py ' + str(GPIO_PIN) + ' ' + str(DUTATION) + ' ' + str(disk_)
+    getIOs = getIOs_Thread()
+
+    got = False
     # print(cli)
     while True:
         now_ = time.localtime()
@@ -94,7 +115,13 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
             time.sleep(DUTATION)
             continue
         
-        disk_IO_util_now = get_disk_IO_util(disk_)
+        if got:
+            IOs = getIOs.get_return()
+            avg = float(sum(IOs)/len(IOs))
+            print(IOs, avg)
+            disk_IO_util_now = avg
+        else:
+            disk_IO_util_now = get_disk_IO_util(disk_)
         not_ = ''
         nocheckdt = False
         if (not(float(disk_IO_util_now) > float(DISK_IO_UTIL_THRESHOLD_VALUE))):
@@ -106,7 +133,7 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
             else:
                 print(strs[0])
         else:
-            strs = ["[{}] Disk is {}in use ({})".format(now, not_, disk_IO_util_now), ', disk temperature will not be checked (return {RETURN_TEMP_WHEN_DISK_NOT_IN_USE})'.format()]
+            strs = ["[{}] Disk is {}in use ({})".format(now, not_, disk_IO_util_now), ', disk temperature will not be checked (return {})'.format(RETURN_TEMP_WHEN_DISK_NOT_IN_USE)]
             print(strs[0])
         
         if nocheckdt:
@@ -125,6 +152,9 @@ def main(also_by_cpu_temp_control=False, do_nothing_at_night=False, not_check_di
             print(texts[0] + texts[1])
             conditions = overrun['disk']
         
+        getIOs.newThread(DUTATION, disk_)
+        got = True
+
         if NORMALLY_OPEN_OR_CLOSED:
             # 常开继电器
             if conditions:

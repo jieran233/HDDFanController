@@ -8,11 +8,9 @@ from sys import argv
 
 def main():
     fan = LED(int(argv[1]))
-
-    while True:
-        fan.off()
-        sleep(int(argv[2]))
-        exit()
+    fan.off()
+    sleep(int(argv[2]))
+    exit()
 
 if __name__ == '__main__':
     main()
